@@ -1,0 +1,62 @@
+name: Build Luau Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Luau
+        uses: actions/checkout@v4
+        with:
+          repository: luau-lang/luau
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ make
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLUAU_BUILD_TESTS=OFF \
+            -DLUAU_BUILD_WEB=OFF
+
+      - name: Build luau-ast
+        run: |
+          cmake --build build \
+            --target Luau.Ast.CLI \
+            --config Release \
+            --parallel 2
+
+      - name: Build luau
+        run: |
+          cmake --build build \
+            --target Luau.Repl.CLI \
+            --config Release \
+            --parallel 2
+
+      - name: Prepare binaries
+        run: |
+          mkdir -p output
+
+          cp build/luau-ast output/luau-ast
+          cp build/luau output/luau
+
+          chmod +x output/luau
+          chmod +x output/luau-ast
+
+          file output/luau
+          file output/luau-ast
+
+          ./output/luau-ast --help || true
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: luau-linux-x64
+          path: output/
